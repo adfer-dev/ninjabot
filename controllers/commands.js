@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js'
+import { SlashCommandBuilder, ChannelType, PermissionsBitField } from 'discord.js'
 
 const commands = [
   {
@@ -7,7 +7,10 @@ const commands = [
       .setDescription('creates a welcome channel on the server.'),
     async execute (interaction) {
       if (!interaction.guild.channels.cache.find(channel => channel.name === 'welcome')) {
-        await interaction.guild.channels.create({ name: 'welcome' })
+        await interaction.guild.channels.create({
+          name: 'welcome',
+          type: ChannelType.GuildText
+        })
         await interaction.reply('welcome channel has been created successfully.')
       } else {
         await interaction.reply('welcome channel has already been created.')
@@ -23,22 +26,50 @@ const commands = [
           .setDescription('the name of the room')
           .setRequired(true)
       )
-      .addStringOption(typeOption =>
+      .addIntegerOption(typeOption =>
         typeOption.setName('type')
           .setDescription('the type of the channel. only voice or text are valid inputs.')
           .setRequired(true)
           .addChoices(
-            { name: 'text', value: 'text' },
-            { name: 'voice', value: 'voice' }
+            { name: 'voice', value: ChannelType.GuildVoice },
+            { name: 'text', value: ChannelType.GuildText }
           )
       )
-      .addUserOption(usersOption =>
+      .addStringOption(usersOption =>
         usersOption.setName('users')
           .setDescription('the users to be added to the private room.')
           .setRequired(true)
       ),
     async execute (interaction) {
-      console.log(interaction.options.getUser('users'))
+      const userIds = interaction.options.getString('users').replaceAll(/[^\d ^\s]/g, '').split(' ')
+      const channelName = interaction.options.getString('name')
+      if (!interaction.guild.channels.cache.find(channel => channel.name === channelName)) {
+        const newRole = await interaction.guild.roles.create({ name: channelName })
+
+        for (const id of userIds) {
+          const user = interaction.guild.members.cache.get(id)
+          user.roles.add(newRole)
+        }
+
+        await interaction.guild.channels.create(
+          {
+            name: channelName,
+            type: interaction.options.getInteger('type'),
+            permissionOverwrites: [
+              {
+                id: newRole.id,
+                allow: [PermissionsBitField.Flags.ViewChannel]
+              },
+              {
+                id: interaction.guild.roles.cache.find(role => role.name === '@everyone').id,
+                deny: [PermissionsBitField.Flags.ViewChannel]
+              }
+            ]
+          })
+        interaction.reply('Private channel has been created')
+      } else {
+        interaction.reply('This channel\'s name already exists. Please choose another name.')
+      }
     }
   }
 ]

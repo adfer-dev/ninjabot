@@ -30,8 +30,4 @@ client.on('channelCreate', (channel) => {
   console.log(`channelCreate: ${channel}`)
 })
 
-client.on('interactionCreate', (interaction) => {
-  //
-})
-
 client.login(process.env.BOT_TOKEN)
