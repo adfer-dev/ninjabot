@@ -9,13 +9,8 @@ const client = new Discord.Client({
     Discord.GatewayIntentBits.Guilds,
     Discord.GatewayIntentBits.GuildMembers,
     Discord.GatewayIntentBits.GuildMessages,
-    Discord.GatewayIntentBits.MessageContent
+    Discord.GatewayIntentBits.GuildVoiceStates
   ]
-})
-client.once('messageCreate', (message) => {
-  if (message.content === 'hello') {
-    message.reply('hi!')
-  }
 })
 
 client.on('guildMemberAdd', async (member) => {
@@ -28,6 +23,10 @@ client.once('ready', async () => {
 
 client.on('channelCreate', (channel) => {
   console.log(`channelCreate: ${channel}`)
+})
+
+client.on('interactionCreate', async (interaction) => {
+  //
 })
 
 client.login(process.env.BOT_TOKEN)

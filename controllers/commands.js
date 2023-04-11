@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, ChannelType, PermissionsBitField } from 'discord.js'
+import { v4 as uuid } from 'uuid'
 
 const commands = [
+  // welcome channel command.
   {
     data: new SlashCommandBuilder()
       .setName('welcome')
@@ -17,9 +19,10 @@ const commands = [
       }
     }
   },
+  // private room command.
   {
     data: new SlashCommandBuilder()
-      .setName('private')
+      .setName('privateroom')
       .setDescription('creates a voice or text channel that only the tagged users can see.')
       .addStringOption(nameOption =>
         nameOption.setName('name')
@@ -41,34 +44,47 @@ const commands = [
           .setRequired(true)
       ),
     async execute (interaction) {
-      const userIds = interaction.options.getString('users').replaceAll(/[^\d ^\s]/g, '').split(' ')
-      const channelName = interaction.options.getString('name')
-      if (!interaction.guild.channels.cache.find(channel => channel.name === channelName)) {
-        const newRole = await interaction.guild.roles.create({ name: channelName })
+      const userIds = interaction.options.getString('users').replaceAll(/[^\d ^\s]/g, '').split(' ') // get users´s ids passed by the user
+      const channelName = interaction.options.getString('name')// the user´s selected channel room
 
+      // check that the channel name does not already exists
+      if (!userIds.includes('')) {
+        const newRole = await interaction.guild.roles.create({ name: uuid() })// create the role for the private channel
+
+        // set the role for every chosen user
         for (const id of userIds) {
           const user = interaction.guild.members.cache.get(id)
           user.roles.add(newRole)
         }
 
-        await interaction.guild.channels.create(
+        // create the channel with visualization permissions only for the chosen users.
+        const newChannel = await interaction.guild.channels.create(
           {
             name: channelName,
             type: interaction.options.getInteger('type'),
             permissionOverwrites: [
               {
-                id: newRole.id,
+                id: interaction.guild.roles.cache.find(allowedRoles => (allowedRoles.name === newRole.name || allowedRoles.name === 'adferbot')).id,
                 allow: [PermissionsBitField.Flags.ViewChannel]
               },
               {
-                id: interaction.guild.roles.cache.find(role => role.name === '@everyone').id,
+                id: interaction.guild.roles.cache.find(deniedRoles => deniedRoles.name === '@everyone').id,
                 deny: [PermissionsBitField.Flags.ViewChannel]
               }
             ]
           })
         interaction.reply('Private channel has been created')
+
+        // set an interval to check every 2 hours if the channel is empty. If it is, delete it.
+        const checkUnusedInterval = setInterval(() => {
+          if (newChannel.members.size === 0) {
+            newChannel.delete('Temporal channel expired - Delete channel')
+            newRole.delete('Temporal channel expired - Delete channel role')
+            clearInterval(checkUnusedInterval)
+          }
+        }, 7200000)
       } else {
-        interaction.reply('This channel\'s name already exists. Please choose another name.')
+        interaction.reply('Input error: This channel\'s name already exists')
       }
     }
   }
