@@ -23,7 +23,7 @@ const commands = [
   {
     data: new SlashCommandBuilder()
       .setName('privateroom')
-      .setDescription('creates a voice or text channel that only the tagged users can see.')
+      .setDescription('creates a temporal channel that only the tagged users can see.')
       .addStringOption(nameOption =>
         nameOption.setName('name')
           .setDescription('the name of the room')
@@ -47,7 +47,7 @@ const commands = [
       const userIds = interaction.options.getString('users').replaceAll(/[^\d ^\s]/g, '').split(' ') // get users´s ids passed by the user
       const channelName = interaction.options.getString('name')// the user´s selected channel room
 
-      // check that the channel name does not already exists
+      // check that all tagged users exist.
       if (!userIds.includes('')) {
         const newRole = await interaction.guild.roles.create({ name: uuid() })// create the role for the private channel
 
@@ -77,12 +77,12 @@ const commands = [
 
         // set an interval to check every 2 hours if the channel is empty. If it is, delete it.
         const checkUnusedInterval = setInterval(() => {
-          if (newChannel.members.size === 0) {
+          if (interaction.guild.channels.cache.has(newChannel.id) && newChannel.members.size === 0) {
             newChannel.delete('Temporal channel expired - Delete channel')
             newRole.delete('Temporal channel expired - Delete channel role')
             clearInterval(checkUnusedInterval)
           }
-        }, 7200000)
+        }, 10000)// 7200000
       } else {
         interaction.reply('Input error: This channel\'s name already exists')
       }
