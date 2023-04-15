@@ -1,6 +1,4 @@
-import { SlashCommandBuilder, ChannelType } from 'discord.js'
-
-const CHANNEL_ID_REGEX = /[\d{19}]/g
+import { SlashCommandBuilder, ChannelType, PermissionsBitField } from 'discord.js'
 
 const commands = [
   // welcome channel command.
@@ -51,22 +49,21 @@ const commands = [
       // check that all tagged users exist.
       if (!userIds.includes('')) {
         const newChannel = await interaction.guild.channels.create({
-          name: channelName,
+          name: 'private_' + channelName,
           type: interaction.options.getInteger('type')
         })
 
-        const newRole = await interaction.guild.roles.create({ name: newChannel.id })// create the role for the private channel
-
-        // set the role for every chosen user
-        for (const id of userIds) {
-          const user = interaction.guild.members.cache.get(id)
-          user.roles.add(newRole)
-        }
-
         // set channel´s permissions only for the chosen users.
-        newChannel.permissionOverwrites.create(interaction.guild.roles.cache.find(allowedRoles => (allowedRoles.name === newRole.name || allowedRoles.name === 'adferbot')), {
+        for (const id of userIds) {
+          newChannel.permissionOverwrites.create(id, {
+            ViewChannel: true
+          })
+        }
+        // also grant access to bot user
+        newChannel.permissionOverwrites.create(interaction.guild.roles.cache.find(botRole => botRole.name === 'adferbot').id, {
           ViewChannel: true
         })
+        // deny access to the rest of users
         newChannel.permissionOverwrites.create(interaction.guild.roles.cache.find(deniedRoles => deniedRoles.name === '@everyone'), {
           ViewChannel: false
         })
@@ -80,7 +77,6 @@ const commands = [
             if (interaction.guild.channels.cache.has(newChannel.id)) {
               newChannel.delete('Temporal channel expired - Delete channel')
             }
-            newRole.delete('Temporal channel expired - Delete channel role')
             clearInterval(checkUnusedInterval)
           }
         }, 7200000)
@@ -89,21 +85,39 @@ const commands = [
       }
     }
   },
+
   {
     data: new SlashCommandBuilder()
       .setName('getcodes')
       .setDescription('gets the codes of the private channels that this user is in.'),
     async execute (interaction) {
-      if (interaction.member.roles.cache.size > 0) {
+      const channels = interaction.guild.channels.cache.filter(channel => (channel.permissionsFor(interaction.member).has(PermissionsBitField.Flags.ViewChannel) && channel.name.startsWith('private_')))
+      if (channels.size > 0) {
         let messageContent = 'Codes of private channels'
-        interaction.member.roles.cache.forEach(role => {
-          if (CHANNEL_ID_REGEX.test(role.name)) {
-            const channel = interaction.guild.channels.cache.find(channel => (channel.id === role.name))
-            messageContent += '\n' + channel.name + ': ' + channel.id
-          }
+        channels.forEach(channel => {
+          messageContent += '\n' + channel.name + ': ' + channel.id
         })
         await ephemeralInteractionReply(interaction, messageContent)
       } else { await ephemeralInteractionReply(interaction, 'You are not in any private channel.') }
+    }
+  },
+
+  {
+    data: new SlashCommandBuilder()
+      .setName('joinchannel')
+      .setDescription('adds a user to a private channel')
+      .addStringOption(codeOption =>
+        codeOption.setName('code')
+          .setDescription('the code of the room to be joined')
+          .setRequired(true)
+      ),
+    async execute (interaction) {
+      const selectedChannel = interaction.guild.channels.cache.find(channel => channel.id === interaction.options.getString('code'))
+      if (selectedChannel) {
+        console.log(selectedChannel.name)
+        selectedChannel.permissionOverwrites.create(interaction.member.id, { ViewChannel: true })
+        await ephemeralInteractionReply(interaction, 'joining room...')
+      } else { await ephemeralInteractionReply(interaction, 'This channel does not exist.') }
     }
   }
 ]
