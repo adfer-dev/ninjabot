@@ -22,7 +22,7 @@ client.once('ready', async () => {
 })
 
 client.on('channelCreate', (channel) => {
-  console.log(`channelCreate: ${channel}`)
+  console.log('channelCreate:' + channel.name + channel.id)
 })
 
 client.on('interactionCreate', async (interaction) => {
