@@ -39,7 +39,8 @@ const commands = [
       })
       // also grant access to bot user
       newChannel.permissionOverwrites.create(interaction.client.user.id, {
-        ViewChannel: true
+        ViewChannel: true,
+        CreateInstantInvite: true
       })
       // deny access to the rest of users
       newChannel.permissionOverwrites.create(interaction.guild.roles.cache.find(deniedRoles => deniedRoles.name === '@everyone'), {
@@ -76,17 +77,34 @@ const commands = [
 
   {
     data: new SlashCommandBuilder()
-      .setName('getcodes')
+      .setName('getinvites')
       .setDescription('Gets the codes of the private channels that this user is in'),
     async execute (interaction) {
       const channels = interaction.guild.channels.cache.filter(channel => (channel.permissionsFor(interaction.member).has(PermissionsBitField.Flags.ViewChannel) && channel.name.startsWith('private_')))
       if (channels.size > 0) {
         let messageContent = '__**Codes of private channels**__'
-        channels.forEach(channel => {
-          messageContent += '\n' + '**' + channel.name + '**: ' + channel.id
-        })
+
+        for (const channel of channels.values()) {
+          const channelInvites = await channel.fetchInvites()
+          if (channelInvites.size > 0) {
+            for (const invite of channelInvites.values()) {
+              messageContent += '\n **' + channel.name + '**: ' + invite.code
+            }
+          } else {
+            const channelInvite = await channel.createInvite({
+              temporary: false,
+              maxAge: 28800,
+              unique: true,
+              reason: 'No invites in private channel - Creating new invite.'
+            })
+            messageContent += '\n **' + channel.name + '**: ' + channelInvite.code
+          }
+        }
+
         await ephemeralInteractionReply(interaction, messageContent)
-      } else { await ephemeralInteractionReply(interaction, 'You are not in any private channel. Please, create or join one first. ') }
+      } else {
+        await ephemeralInteractionReply(interaction, 'You are not in any private channel. Please, create or join one first. ')
+      }
     }
   },
 
@@ -100,11 +118,12 @@ const commands = [
           .setRequired(true)
       ),
     async execute (interaction) {
-      const selectedChannel = interaction.guild.channels.cache.find(channel => channel.id === interaction.options.getString('code'))
-      if (selectedChannel) {
-        selectedChannel.permissionOverwrites.create(interaction.member.id, { ViewChannel: true })
-        await ephemeralInteractionReply(interaction, 'Joining ' + selectedChannel.name + '...')
-      } else { await ephemeralInteractionReply(interaction, 'Code incorrect. This channel does not exist. ') }
+      const invite = interaction.guild.invites.cache.find(invite => invite.code === interaction.options.getString('code'))
+
+      if (invite) {
+        invite.channel.permissionOverwrites.create(interaction.member.id, { ViewChannel: true })
+        await ephemeralInteractionReply(interaction, 'Joining ' + invite.channel.name + '...')
+      } else { await ephemeralInteractionReply(interaction, 'Code incorrect. This channel does not exist or has been deleted. ') }
     }
   }
 ]
