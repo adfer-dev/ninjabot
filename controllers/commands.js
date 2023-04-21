@@ -75,6 +75,7 @@ const commands = [
     }
   },
 
+  // get invite codes command
   {
     data: new SlashCommandBuilder()
       .setName('getinvites')
@@ -104,6 +105,31 @@ const commands = [
         await ephemeralInteractionReply(interaction, messageContent)
       } else {
         await ephemeralInteractionReply(interaction, 'You are not in any private channel. Please, create or join one first. ')
+      }
+    }
+  },
+
+  // reset invite codes command
+  {
+    data: new SlashCommandBuilder()
+      .setName('resetinvites')
+      .setDescription('Gets the codes of the private channels that this user is in'),
+    async execute (interaction) {
+      const channels = interaction.guild.channels.cache.filter(channel => (channel.permissionsFor(interaction.member).has(PermissionsBitField.Flags.ViewChannel) && channel.name.startsWith('private_')))
+      if (channels.size > 0) {
+        for (const channel of channels.values()) {
+          const channelInvites = await channel.fetchInvites()
+          if (channelInvites.size > 0) {
+            for (const invite of channelInvites.values()) {
+              invite.delete('User reset invites -  delete all invites')
+            }
+            await ephemeralInteractionReply(interaction, 'Invite codes were reset. Now you can use **getinvites** to get the new invite codes.')
+          } else {
+            await ephemeralInteractionReply(interaction, 'No invites were found. Please, first use **getinvites** to get your invite codes.')
+          }
+        }
+      } else {
+        await ephemeralInteractionReply(interaction, 'You are not in any private channel. Please, create or join one first.')
       }
     }
   },
@@ -141,7 +167,6 @@ export async function initCommands (client) {
         try {
           await command.execute(interaction)
         } catch (error) {
-          console.error(error)
           await ephemeralInteractionReply(interaction, 'Server error: There was an error while executing this command!')
         }
       }
