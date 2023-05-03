@@ -1,13 +1,13 @@
 import { SlashCommandBuilder, ChannelType, PermissionsBitField } from 'discord.js'
 
-const TAGGED_USER_ID_PATTERN = /<@(\d{19})>/g
+const TAGGED_USER_ID_PATTERN = /<@(\d{18,19})>/g
 
 const commands = [
   // private room command.
   {
     data: new SlashCommandBuilder()
-      .setName('privateroom')
-      .setDescription('Creates a private channel that only this user and the tagged users can see')
+      .setName('privatechannel')
+      .setDescription('Creates a private channel that only this user and the tagged users can see.')
       .addStringOption(nameOption =>
         nameOption.setName('name')
           .setDescription('Name of the room')
@@ -50,7 +50,7 @@ const commands = [
 
       // check if there are additional users and grant them permissions if they are valid
       if (interaction.options.getString('users')) {
-        const validTaggedUsers = interaction.options.getString('users').match(TAGGED_USER_ID_PATTERN) // get users´s ids passed by the user that match the format(<@idNumber>)
+        const validTaggedUsers = interaction.options.getString('users').match(TAGGED_USER_ID_PATTERN) // get users´s ids passed by the user that match the format(<@idNumber>)º
         if (validTaggedUsers) {
           const userIds = validTaggedUsers.map(inputUserId => inputUserId.replaceAll(/[^0-9]/g, '')) // get just the id numbers
           for (const id of userIds) {
@@ -58,10 +58,12 @@ const commands = [
               ViewChannel: true
             })
           }
+          const channelUserCount = validTaggedUsers.length + 1
+          await ephemeralInteractionReply(interaction, 'Private channel **' + newChannel.name + '** has been created for ' + channelUserCount + ' users.')
         }
+      } else {
+        await ephemeralInteractionReply(interaction, 'Private channel **' + newChannel.name + '** has been created for 1 user.')
       }
-      await ephemeralInteractionReply(interaction, 'Private channel has been created. Now you can use **/getcodes** to get the codes of each private channel. Any user can join your channel using **/joinchannel** and pasting in the code.')
-
       // set an interval to check every 2 hours if the channel is empty. If it is, delete it.
       const checkUnusedInterval = setInterval(() => {
         if (newChannel.members.size === 0) {
@@ -79,7 +81,7 @@ const commands = [
   {
     data: new SlashCommandBuilder()
       .setName('getinvites')
-      .setDescription('Gets the codes of the private channels that this user is in'),
+      .setDescription('Gets the codes of the private channels that this user is in.'),
     async execute (interaction) {
       const channels = interaction.guild.channels.cache.filter(channel => (channel.permissionsFor(interaction.member).has(PermissionsBitField.Flags.ViewChannel) && channel.name.startsWith('private_')))
       if (channels.size > 0) {
@@ -87,22 +89,24 @@ const commands = [
 
         for (const channel of channels.values()) {
           const channelInvites = await channel.fetchInvites()
+          // check if there are any invites. If none was found, create a new one.
           if (channelInvites.size > 0) {
             for (const invite of channelInvites.values()) {
               messageContent += '\n **' + channel.name + '**: ' + invite.code
             }
           } else {
-            const channelInvite = await channel.createInvite({
+            const newInvite = await channel.createInvite({
               temporary: false,
               maxAge: 28800,
               unique: true,
               reason: 'No invites in private channel - Creating new invite.'
             })
-            messageContent += '\n **' + channel.name + '**: ' + channelInvite.code
+            messageContent += '\n **' + channel.name + '**: ' + newInvite.code
           }
         }
 
-        await ephemeralInteractionReply(interaction, messageContent)
+        await interaction.member.send(messageContent)
+        await ephemeralInteractionReply(interaction, 'Invite codes were sent. Check your DMs. ')
       } else {
         await ephemeralInteractionReply(interaction, 'You are not in any private channel. Please, create or join one first. ')
       }
@@ -113,7 +117,7 @@ const commands = [
   {
     data: new SlashCommandBuilder()
       .setName('resetinvites')
-      .setDescription('Gets the codes of the private channels that this user is in'),
+      .setDescription('Deletes all the invites of each channel this user is member of.'),
     async execute (interaction) {
       const channels = interaction.guild.channels.cache.filter(channel => (channel.permissionsFor(interaction.member).has(PermissionsBitField.Flags.ViewChannel) && channel.name.startsWith('private_')))
       if (channels.size > 0) {
@@ -137,19 +141,35 @@ const commands = [
   {
     data: new SlashCommandBuilder()
       .setName('joinchannel')
-      .setDescription('Add this user to the channel that relates to the input code')
+      .setDescription('Adds this user to the channel whose invite is linked to the input code.')
       .addStringOption(codeOption =>
         codeOption.setName('code')
-          .setDescription('the code of the room to be joined')
+          .setDescription('the invite code of the room to be joined')
           .setRequired(true)
       ),
     async execute (interaction) {
       const invite = interaction.guild.invites.cache.find(invite => invite.code === interaction.options.getString('code'))
-
       if (invite) {
-        invite.channel.permissionOverwrites.create(interaction.member.id, { ViewChannel: true })
-        await ephemeralInteractionReply(interaction, 'Joining ' + invite.channel.name + '...')
-      } else { await ephemeralInteractionReply(interaction, 'Code incorrect. This channel does not exist or has been deleted. ') }
+        if (!invite.channel.permissionsFor(interaction.member).has(PermissionsBitField.Flags.ViewChannel)) {
+          invite.channel.permissionOverwrites.create(interaction.member.id, { ViewChannel: true })
+          await ephemeralInteractionReply(interaction, 'Joining ' + invite.channel.name + '...')
+        } else {
+          await ephemeralInteractionReply(interaction, 'You are already in this channel!')
+        }
+      } else { await ephemeralInteractionReply(interaction, 'Code incorrect. This channel does not exist or has been deleted.') }
+    }
+  },
+
+  {
+    data: new SlashCommandBuilder()
+      .setName('help')
+      .setDescription('Shows how to use this bot to new users.'),
+    async execute (interaction) {
+      await ephemeralInteractionReply(interaction, 'Hi there, ' + interaction.member.displayName +
+      '! I will be so glad to help you creating a private room.' +
+      '\nFirst step is to use the **/privateroom** command. This command requires 2 fields to be filled so it works fine. You have to write the **name** of the room and its **type** (whether it is a voice or text channel). You might want to add more friends to the channel. You can do so filling the **users** option so they can see the channel.' +
+      '\nIf you haven\'t done so, don\'t worry, I got you covered. You can use the **/getinvites** command, which will provide you a list of codes for each private room you created. Then any friend can join using the **/joinchannel** command and pasting in the code.' +
+      '\nSo that\'s it! You have created your custom private room. Keep in mind that private rooms are **temporal**. This means that if they are empty during 2 hours they will be deleted. Have fun!')
     }
   }
 ]
