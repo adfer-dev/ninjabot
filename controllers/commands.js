@@ -64,6 +64,7 @@ const commands = [
       } else {
         await ephemeralInteractionReply(interaction, 'Private channel **' + newChannel.name + '** has been created for 1 user.')
       }
+
       // set an interval to check every 2 hours if the channel is empty. If it is, delete it.
       const checkUnusedInterval = setInterval(() => {
         if (newChannel.members.size === 0) {
@@ -154,7 +155,7 @@ const commands = [
           invite.channel.permissionOverwrites.create(interaction.member.id, { ViewChannel: true })
           await ephemeralInteractionReply(interaction, 'Joining ' + invite.channel.name + '...')
         } else {
-          await ephemeralInteractionReply(interaction, 'You are already in this channel!')
+          await ephemeralInteractionReply(interaction, 'You are already a member of this channel!')
         }
       } else { await ephemeralInteractionReply(interaction, 'Code incorrect. This channel does not exist or has been deleted.') }
     }
