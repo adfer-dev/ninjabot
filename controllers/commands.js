@@ -119,7 +119,7 @@ const commands = [
       .setName('resetinvites')
       .setDescription('Deletes all the invites of each channel this user is member of.'),
     async execute (interaction) {
-      const channels = interaction.guild.channels.cache.filter(channel => (channel.permissionsFor(interaction.member).has(PermissionsBitField.Flags.ViewChannel) && channel.name.startsWith('private_')))
+      const channels = interaction.guild.channels.cache.filter(channel => (isChannelVisibleByUser(channel, interaction.member) && channel.name.startsWith('private_')))
       if (channels.size > 0) {
         for (const channel of channels.values()) {
           const channelInvites = await channel.fetchInvites()
@@ -150,7 +150,7 @@ const commands = [
     async execute (interaction) {
       const invite = interaction.guild.invites.cache.find(invite => invite.code === interaction.options.getString('code'))
       if (invite) {
-        if (!invite.channel.permissionsFor(interaction.member).has(PermissionsBitField.Flags.ViewChannel)) {
+        if (!isChannelVisibleByUser(invite.channel, interaction.member)) { // TODO: CAMBIAR A FUNCIÓN checkUserInChannel
           invite.channel.permissionOverwrites.create(interaction.member.id, { ViewChannel: true })
           await ephemeralInteractionReply(interaction, 'Joining ' + invite.channel.name + '...')
         } else {
@@ -195,7 +195,7 @@ export async function initCommands (client) {
 }
 
 /**
- * Function that replies an user interaction with an ephemeral message
+ * Function that replies an user interaction with an ephemeral message.
  * @param {*} interaction the user interaction to be replied
  * @param {*} content the reply message
  */
@@ -204,4 +204,14 @@ async function ephemeralInteractionReply (interaction, content) {
     content,
     ephemeral: true
   })
+}
+
+/**
+ * Function that checks if a user has viewing permissions on a channel.
+ * @param {*} channel the channel to check user´s permissions
+ * @param {*} user the user whose permissions are going to be checked on the channel
+ * @returns a boolean representing wether the user has viewing permissions or not
+ */
+function isChannelVisibleByUser (channel, user) {
+  return channel.permissionsFor(user).has(PermissionsBitField.Flags.ViewChannel)
 }
