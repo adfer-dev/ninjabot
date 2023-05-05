@@ -1,6 +1,6 @@
 import Discord from 'discord.js'
 import dotenv from 'dotenv'
-import { initCommands } from './controllers/commands.js'
+import { initCommands } from './controllers/commandHandler.js'
 
 dotenv.config()
 
@@ -12,7 +12,7 @@ const client = new Discord.Client({
   ]
 })
 
-client.once('ready', async () => {
+client.once('ready', () => {
   initCommands(client)
 })
 

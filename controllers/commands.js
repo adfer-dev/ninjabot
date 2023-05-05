@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChannelType, PermissionsBitField } from 'discord.j
 
 const TAGGED_USER_ID_PATTERN = /<@(\d{18,19})>/g
 
-const commands = [
+export const commands = [
   // private room command.
   {
     data: new SlashCommandBuilder()
@@ -98,11 +98,10 @@ const commands = [
           } else {
             const newInvite = await channel.createInvite({
               temporary: false,
-              maxAge: 28800,
               unique: true,
               reason: 'No invites in private channel - Creating new invite.'
             })
-            messageContent += '\n **' + channel.name + '**: ' + newInvite.code
+            messageContent += '\n**' + channel.name + '**: ' + newInvite.code
           }
         }
 
@@ -174,26 +173,6 @@ const commands = [
     }
   }
 ]
-
-/**
- * Function that registers the command and adds a listener to handle its execute function.
- * @param {*} client DiscordAPI´s client
- */
-export async function initCommands (client) {
-  for (const command of commands) {
-    await client.application.commands.create(command.data.toJSON())
-
-    client.on('interactionCreate', async (interaction) => {
-      if (interaction.isCommand() && interaction.commandName === command.data.name) {
-        try {
-          await command.execute(interaction)
-        } catch (error) {
-          await ephemeralInteractionReply(interaction, 'Server error: There was an error while executing this command!')
-        }
-      }
-    })
-  }
-}
 
 /**
  * Function that replies an user interaction with an ephemeral message.
